@@ -1,0 +1,44 @@
+[[language]]
+name = "python"
+scope = "source.python"
+injection-regex = "python"
+file-types = ["py"]
+shebangs = ["python"]
+comment-token = "#"
+language-servers = [ "pyright", "ruff" ]
+
+[[language]]
+name = "toml"
+file-types = ["toml"]
+language-servers = [ "taplo" ]
+
+[[language]]
+name = "html"
+file-types = ["html"]
+language-servers = ["vscode-html-language-server"]
+
+[[language]]
+name = "css"
+file-types = ["css"]
+language-servers = ["vscode-css-language-server"]
+
+[[language]]
+name = "javascript"
+file-types = ["js", "jsx", "mjs", "cjs"]
+language-servers = ["typescript-language-server"]
+
+[[language]]
+name = "typescript"
+file-types = ["ts", "tsx", "mts", "cts"]
+language-servers = ["typescript-language-server"]
+
+[[language]]
+name = "lua"
+language-servers = [ "lua-language-server" ]
+
+[[language]]
+name = "rust"
+language-servers = [ "rust-analyzer" ]
+
+[language-server.rust-analyzer.config]
+checkOnSave = { command = "clippy" }
