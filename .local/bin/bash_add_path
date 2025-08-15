@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Function to add a directory to PATH with colored output
+bash_add_path() {
+    local new_path="$1"
+
+    # Define colors using ANSI escape codes
+    RED='\033[0;31m'    # Error messages
+    GREEN='\033[0;32m'  # Success messages
+    YELLOW='\033[0;33m' # Warning messages
+    NC='\033[0m'        # No Color (reset)
+
+    # Check if .bashrc exists, if not create it
+    if [[ ! -f ~/.bashrc ]]; then
+        echo -e "${YELLOW}Warning: .bashrc file not found. Creating a new one.${NC}"
+        touch ~/.bashrc
+    fi
+
+    # Check if the argument is provided
+    if [[ -z "$new_path" ]]; then
+        echo -e "${RED}Error: No directory provided.${NC}"
+        echo -e "Usage: bash_add_path <directory>"
+        return 1
+    fi
+
+    # Check if the directory exists
+    if [[ ! -d "$new_path" ]]; then
+        echo -e "${RED}Error: Directory '$new_path' does not exist.${NC}"
+        return 1
+    fi
+
+    # Check if the directory is already in PATH
+    if [[ ":$PATH:" != *":$new_path:"* ]]; then
+        export PATH="$new_path:$PATH"
+        echo -e "${GREEN}Success: Added '$new_path' to PATH.${NC}"
+
+        # Append the export command to .bashrc for persistence
+        echo "export PATH=\"$new_path:\$PATH\"" >> ~/.bashrc
+        source ~/.bashrc
+    else
+        echo -e "${YELLOW}Warning: '$new_path' is already in PATH.${NC}"
+    fi
+}
+
+# Call the function with the provided argument
+bash_add_path "$@"

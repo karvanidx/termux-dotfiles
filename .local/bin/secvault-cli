@@ -1,0 +1,346 @@
+#!/usr/bin/env python3
+"""
+SecureVault - CLI File Encryption Tool
+A secure file encryption/decryption tool with a beautiful interface.
+"""
+
+import os
+import sys
+import time
+import argparse
+import getpass
+from pathlib import Path
+from typing import List, Optional
+
+# Rich untuk tampilan yang menarik
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
+from rich.text import Text
+from rich.table import Table
+from rich.prompt import Prompt, Confirm
+from rich.traceback import install as install_rich_traceback
+
+# Cryptography untuk enkripsi yang aman
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.backends import default_backend
+import base64
+import secrets
+
+# Konstanta
+SALT_SIZE = 16
+NONCE_SIZE = 12
+TAG_SIZE = 16
+ITERATION_COUNT = 100000
+EXTENSION_ENCRYPTED = ".karvanuix"
+EXTENSION_DECRYPTED = ".decrypted"
+
+# Setup Rich
+console = Console()
+install_rich_traceback()
+
+class SecureVault:
+    def __init__(self):
+        self.console = Console()
+    
+    def _derive_key(self, password: str, salt: bytes) -> bytes:
+        """Menurunkan kunci enkripsi dari password dan salt."""
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,  # 256 bit key
+            salt=salt,
+            iterations=ITERATION_COUNT,
+            backend=default_backend()
+        )
+        return kdf.derive(password.encode())
+    
+    def encrypt_file(self, file_path: Path, password: str) -> bool:
+        """Mengenkripsi file dengan password yang diberikan."""
+        try:
+            # Generate salt dan nonce baru untuk setiap file
+            salt = os.urandom(SALT_SIZE)
+            nonce = os.urandom(NONCE_SIZE)
+            
+            # Turunkan kunci dari password
+            key = self._derive_key(password, salt)
+            
+            # Baca konten file
+            with open(file_path, 'rb') as f:
+                plaintext = f.read()
+            
+            # Enkripsi data
+            cipher = AESGCM(key)
+            ciphertext = cipher.encrypt(nonce, plaintext, None)
+            
+            # Format output: salt + nonce + ciphertext
+            encrypted_data = salt + nonce + ciphertext
+            
+            # Tulis file terenkripsi
+            encrypted_path = str(file_path) + EXTENSION_ENCRYPTED
+            with open(encrypted_path, 'wb') as f:
+                f.write(encrypted_data)
+            
+            return True
+        except Exception as e:
+            self.console.print(f"[bold red]Error mengenkripsi {file_path}: {str(e)}[/]")
+            return False
+    
+    def decrypt_file(self, file_path: Path, password: str) -> bool:
+        """Mendekripsi file dengan password yang diberikan."""
+        try:
+            # Baca file terenkripsi
+            with open(file_path, 'rb') as f:
+                data = f.read()
+            
+            # Ekstrak salt, nonce, dan ciphertext
+            salt = data[:SALT_SIZE]
+            nonce = data[SALT_SIZE:SALT_SIZE + NONCE_SIZE]
+            ciphertext = data[SALT_SIZE + NONCE_SIZE:]
+            
+            # Turunkan kunci dari password
+            key = self._derive_key(password, salt)
+            
+            # Dekripsi data
+            cipher = AESGCM(key)
+            plaintext = cipher.decrypt(nonce, ciphertext, None)
+            
+            # Tulis file terdekripsi
+            if file_path.name.endswith(EXTENSION_ENCRYPTED):
+                decrypted_path = str(file_path)[:-len(EXTENSION_ENCRYPTED)]
+            else:
+                decrypted_path = str(file_path) + EXTENSION_DECRYPTED
+            
+            with open(decrypted_path, 'wb') as f:
+                f.write(plaintext)
+            
+            return True
+        except Exception as e:
+            self.console.print(f"[bold red]Error mendekripsi {file_path}: {str(e)}[/]")
+            return False
+    
+    def process_files(self, files: List[Path], password: str, mode: str) -> None:
+        """Memproses daftar file untuk enkripsi atau dekripsi."""
+        action = "enkripsi" if mode == "encrypt" else "dekripsi"
+        method = self.encrypt_file if mode == "encrypt" else self.decrypt_file
+        
+        total_files = len(files)
+        success_count = 0
+        
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=self.console
+        ) as progress:
+            task = progress.add_task(f"[cyan]Melakukan {action} file...", total=total_files)
+            
+            for file_path in files:
+                progress.update(task, description=f"[cyan]Memproses [bold]{file_path.name}[/]")
+                result = method(file_path, password)
+                if result:
+                    success_count += 1
+                progress.advance(task)
+                time.sleep(0.1)  # Untuk efek visual
+        
+        self.console.print()
+        if success_count == total_files:
+            self.console.print(Panel(
+                f"[bold green]Berhasil melakukan {action} pada {success_count} dari {total_files} file![/]",
+                title="Operasi Selesai",
+                border_style="green"
+            ))
+        else:
+            self.console.print(Panel(
+                f"[bold yellow]Berhasil melakukan {action} pada {success_count} dari {total_files} file.[/]\n"
+                f"[bold red]{total_files - success_count} file gagal diproses.[/]",
+                title="Operasi Selesai dengan Peringatan",
+                border_style="yellow"
+            ))
+    
+    def show_banner(self) -> None:
+        """Menampilkan banner aplikasi."""
+        banner = Text()
+        banner.append("\n")
+        banner.append("  ███████╗███████╗ ██████╗██╗   ██╗██████╗ ███████╗    ", "bright_blue")
+        banner.append("  ██╔════╝██╔════╝██╔════╝██║   ██║██╔══██╗██╔════╝    ", "blue")
+        banner.append("  ███████╗█████╗  ██║     ██║   ██║██████╔╝█████╗      ", "cyan")
+        banner.append("  ╚════██║██╔══╝  ██║     ██║   ██║██╔══██╗██╔══╝      ", "cyan")
+        banner.append("  ███████║███████╗╚██████╗╚██████╔╝██║  ██║███████╗    ", "blue")
+        banner.append("  ╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝    ", "bright_blue")
+        banner.append("\n")
+        banner.append("  ██╗   ██╗ █████╗ ██╗   ██╗██╗  ████████╗             ", "bright_magenta")
+        banner.append("  ██║   ██║██╔══██╗██║   ██║██║  ╚══██╔══╝             ", "magenta")
+        banner.append("  ██║   ██║███████║██║   ██║██║     ██║                ", "magenta")
+        banner.append("  ╚██╗ ██╔╝██╔══██║██║   ██║██║     ██║                ", "magenta")
+        banner.append("   ╚████╔╝ ██║  ██║╚██████╔╝███████╗██║                ", "bright_magenta")
+        banner.append("    ╚═══╝  ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  v1.0.0        ", "bright_magenta")
+        banner.append("\n")
+        
+        self.console.print(Panel(
+            banner,
+            border_style="cyan",
+            subtitle="[bold]File Encryption Tool[/]"
+        ))
+        
+        self.console.print(
+            "[cyan]Selamat datang di [bold]SecureVault[/]! "
+            "Enkripsi dan dekripsi file Anda dengan aman.[/]\n"
+        )
+
+    def show_help(self) -> None:
+        """Menampilkan bantuan penggunaan."""
+        table = Table(title="Penggunaan Dasar")
+        table.add_column("Perintah", style="cyan")
+        table.add_column("Keterangan", style="green")
+        
+        table.add_row(
+            "encrypt [file/direktori]", 
+            "Mengenkripsi file atau semua file di direktori"
+        )
+        table.add_row(
+            "decrypt [file terenkripsi]", 
+            f"Mendekripsi file dengan ekstensi {EXTENSION_ENCRYPTED}"
+        )
+        table.add_row(
+            "status", 
+            "Menampilkan statistik file terenkripsi"
+        )
+        table.add_row(
+            "help", 
+            "Menampilkan bantuan ini"
+        )
+        
+        self.console.print(table)
+        
+        # Pengingat keamanan
+        self.console.print(Panel(
+            "[bold yellow]⚠️ PERINGATAN[/]\n"
+            "[white]• Simpan password Anda dengan aman. Jika hilang, file tidak dapat dipulihkan.\n"
+            "• Tool ini adalah untuk penggunaan pribadi yang sah saja.\n"
+            "• Selalu buat backup file penting sebelum mengenkripsi.[/]",
+            title="Keamanan",
+            border_style="yellow"
+        ))
+
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="SecureVault - File Encryption Tool")
+    
+    subparsers = parser.add_subparsers(dest="command", help="Commands")
+    
+    # Encrypt command
+    encrypt_parser = subparsers.add_parser("encrypt", help="Encrypt files")
+    encrypt_parser.add_argument("paths", nargs="+", help="Files or directories to encrypt")
+    encrypt_parser.add_argument("-r", "--recursive", action="store_true", help="Recursively encrypt directories")
+    
+    # Decrypt command
+    decrypt_parser = subparsers.add_parser("decrypt", help="Decrypt files")
+    decrypt_parser.add_argument("paths", nargs="+", help="Files to decrypt")
+    
+    # Status command
+    subparsers.add_parser("status", help="Show encryption status")
+    
+    # Help command
+    subparsers.add_parser("help", help="Show help")
+    
+    return parser.parse_args()
+
+def collect_files(paths: List[str], recursive: bool = False, extension: Optional[str] = None) -> List[Path]:
+    """Collect files from paths, optionally recursively and/or filtered by extension."""
+    collected_files = []
+    
+    for path_str in paths:
+        path = Path(path_str)
+        
+        if path.is_file():
+            if extension is None or path.name.endswith(extension):
+                collected_files.append(path)
+        elif path.is_dir():
+            if recursive:
+                for root, _, files in os.walk(path):
+                    for file in files:
+                        file_path = Path(root) / file
+                        if extension is None or file_path.name.endswith(extension):
+                            collected_files.append(file_path)
+            else:
+                for file_path in path.iterdir():
+                    if file_path.is_file():
+                        if extension is None or file_path.name.endswith(extension):
+                            collected_files.append(file_path)
+    
+    return collected_files
+
+def main():
+    """Main function."""
+    args = parse_arguments()
+    app = SecureVault()
+    app.show_banner()
+    
+    if args.command is None or args.command == "help":
+        app.show_help()
+        return
+    
+    if args.command == "encrypt":
+        files = collect_files(args.paths, args.recursive)
+        if not files:
+            console.print("[bold yellow]Tidak ada file yang ditemukan untuk dienkripsi.[/]")
+            return
+        
+        console.print(f"[cyan]Ditemukan [bold]{len(files)}[/] file untuk dienkripsi.[/]")
+        
+        # Tanya konfirmasi
+        if not Confirm.ask("[yellow]Lanjutkan dengan enkripsi?[/]"):
+            console.print("[bold red]Operasi dibatalkan.[/]")
+            return
+        
+        # Tanya password
+        password = Prompt.ask(
+            "Masukkan password enkripsi", 
+            password=True,
+            console=console
+        )
+        confirm_password = Prompt.ask(
+            "Konfirmasi password", 
+            password=True,
+            console=console
+        )
+        
+        if password != confirm_password:
+            console.print("[bold red]Password tidak cocok! Operasi dibatalkan.[/]")
+            return
+        
+        app.process_files(files, password, "encrypt")
+    
+    elif args.command == "decrypt":
+        files = collect_files(args.paths, extension=EXTENSION_ENCRYPTED)
+        if not files:
+            console.print(f"[bold yellow]Tidak ada file dengan ekstensi {EXTENSION_ENCRYPTED} yang ditemukan.[/]")
+            return
+        
+        console.print(f"[cyan]Ditemukan [bold]{len(files)}[/] file terenkripsi untuk didekripsi.[/]")
+        
+        # Tanya password
+        password = Prompt.ask(
+            "Masukkan password dekripsi", 
+            password=True,
+            console=console
+        )
+        
+        app.process_files(files, password, "decrypt")
+    
+    elif args.command == "status":
+        console.print("[bold yellow]Fitur status belum diimplementasikan.[/]")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[bold red]Operasi dibatalkan oleh pengguna.[/]")
+        sys.exit(1)
+    except Exception as e:
+        console.print(f"\n[bold red]Error tidak terduga: {str(e)}[/]")
+        sys.exit(1)
