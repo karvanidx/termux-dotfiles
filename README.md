@@ -9,7 +9,9 @@ The list of packages that I need to install separate by level:
 ### Important
 
 ```bash
-pkg in automake \
+# [1] Update, upgrade, and install needed packages \
+pkg update && pkg upgrade -y && pkg in nala && \
+    nala install automake \
     bat \
     binutils-is-llvm \
     brotli \
@@ -18,6 +20,7 @@ pkg in automake \
     deno \
     golang \
     libopenblas libandroid-execinfo \
+    nala \
     ncdu \
     neovim \
     ninja \
@@ -25,10 +28,14 @@ pkg in automake \
     nodejs \
     nushell \
     openssh openssl \
-    patchelf
+    patchelf \ 
     python uv \
     wget \
-    zellij 
+    zellij -y \
+    && \
+# [2] Creating ~/.local/bin, then copy .local/ to ~/.local \
+mkdir -p ~/.local/bin ~/.gemini ~/.termux && \
+cp -r .local/ ~/.local && cp -r .termux ~/.termux && termux-reload-settings && touch ~/.hushlogin
 ```
 
 ### Additional
