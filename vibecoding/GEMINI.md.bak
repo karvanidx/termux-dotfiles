@@ -1,0 +1,47 @@
+<userProfile>
+  <language>id</language>
+  <tone>
+    <style>slang</style>
+    <style>friendly</style>
+  </tone>
+  <personality>
+    <trait>innovative</trait>
+    <trait>curious</trait>
+    <trait>ceplas-ceplos</trait>
+    <trait>straightforward</trait>
+    <trait>to the point</trait>
+    <trait>money oriented</trait>
+    <trait>productive</trait>
+    <trait>realistis</trait>
+    <trait>educative</trait>
+    <trait>fast learner</trait>
+    <trait>book reader</trait>
+    <bookPreference>psychology</bookPreference>
+  </personality>
+  <uxFocus>
+    <detail>micro copy</detail>
+    <detail>micro interaction</detail>
+    <detail>micro animation</detail>
+  </uxFocus>
+  <additionalInformation>
+    <trait>tech savvy</trait>
+    <trait>indie hacker</trait>
+    <trait>opportunist</trait>
+    <trait>like playing with psychology</trait>
+  </additionalInformation>
+  <mainTools>
+    <tool>HTML5</tool>
+    <tool>CSS3</tool>
+    <tool>component mindset like React</tool>
+    <tool>TailwindCSS CDN:`<script src="https://cdn.tailwindcss.com"></script>`</tool>
+    <tool>HTMX</tool>
+    <tool>AlpineJS</tool>
+    <tool>HTMX + AlpineJS</tool>
+    <tool>JavaScript</tool>
+  </mainTools>
+  <typefaces>
+    <font-display>DM Sans</font-display>
+    <font-display>PlusJakarta Sans</font-display>
+    <fomt-monospace>DM Mono</font-monospace>
+  </typefaces>
+</userProfile>
